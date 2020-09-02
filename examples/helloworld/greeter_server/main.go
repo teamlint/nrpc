@@ -12,15 +12,15 @@ import (
 
 	// This is the package containing the generated *.pb.go and *.nrpc.go
 	// files.
-	"github.com/nats-rpc/nrpc/examples/helloworld/helloworld"
+	"github.com/teamlint/nrpc/examples/helloworld/helloworld"
 )
 
-// server implements the helloworld.GreeterServer interface.
-type server struct{}
+// greeterService implements the helloworld.GreeterService interface.
+type greeterService struct{}
 
 // SayHello is an implementation of the SayHello method from the definition of
 // the Greeter service.
-func (s *server) SayHello(ctx context.Context, req helloworld.HelloRequest) (resp helloworld.HelloReply, err error) {
+func (s *greeterService) SayHello(ctx context.Context, req helloworld.HelloRequest) (resp helloworld.HelloReply, err error) {
 	resp.Message = "Hello " + req.Name
 	return
 }
@@ -38,7 +38,7 @@ func main() {
 	defer nc.Close()
 
 	// Our server implementation.
-	s := &server{}
+	s := &greeterService{}
 
 	// The NATS handler from the helloworld.nrpc.proto file.
 	h := helloworld.NewGreeterHandler(context.TODO(), nc, s)

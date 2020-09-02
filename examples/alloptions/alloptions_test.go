@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
-	"github.com/nats-rpc/nrpc"
 	"github.com/stretchr/testify/require"
+	"github.com/teamlint/nrpc"
 )
 
 type TestingLogWriter struct {

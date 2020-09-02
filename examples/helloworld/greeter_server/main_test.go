@@ -9,7 +9,7 @@ import (
 
 	// This is the package containing the generated *.pb.go and *.nrpc.go
 	// files.
-	"github.com/nats-rpc/nrpc/examples/helloworld/helloworld"
+	"github.com/teamlint/nrpc/examples/helloworld/helloworld"
 )
 
 func TestBasic(t *testing.T) {
@@ -21,7 +21,7 @@ func TestBasic(t *testing.T) {
 	defer nc.Close()
 
 	// Our server implementation.
-	s := &server{}
+	s := &greeterService{}
 
 	// The NATS handler from the helloworld.nrpc.proto file.
 	h := helloworld.NewGreeterHandler(context.TODO(), nc, s)

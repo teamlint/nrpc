@@ -8,13 +8,13 @@ import (
 
 	"google.golang.org/protobuf/proto"
 	"github.com/nats-io/nats.go"
-	github_com_nats_rpc_nrpc "github.com/nats-rpc/nrpc"
-	"github.com/nats-rpc/nrpc"
+	github_com_teamlint_nrpc "github.com/teamlint/nrpc"
+	"github.com/teamlint/nrpc"
 )
 
-// SvcCustomSubjectServer is the interface that providers of the service
+// SvcCustomSubjectService is the interface that providers of the service
 // SvcCustomSubject should implement.
-type SvcCustomSubjectServer interface {
+type SvcCustomSubjectService interface {
 	MtSimpleReply(ctx context.Context, req StringArg) (resp SimpleStringReply, err error)
 	MtVoidReply(ctx context.Context, req StringArg) (err error)
 	MtStreamedReply(ctx context.Context, req StringArg, pushRep func(SimpleStringReply)) (err error)
@@ -22,31 +22,31 @@ type SvcCustomSubjectServer interface {
 }
 
 // SvcCustomSubjectHandler provides a NATS subscription handler that can serve a
-// subscription using a given SvcCustomSubjectServer implementation.
+// subscription using a given SvcCustomSubjectService implementation.
 type SvcCustomSubjectHandler struct {
 	ctx     context.Context
 	workers *nrpc.WorkerPool
 	nc      nrpc.NatsConn
-	server  SvcCustomSubjectServer
+	service  SvcCustomSubjectService
 
 	encodings []string
 }
 
-func NewSvcCustomSubjectHandler(ctx context.Context, nc nrpc.NatsConn, s SvcCustomSubjectServer) *SvcCustomSubjectHandler {
+func NewSvcCustomSubjectHandler(ctx context.Context, nc nrpc.NatsConn, s SvcCustomSubjectService) *SvcCustomSubjectHandler {
 	return &SvcCustomSubjectHandler{
 		ctx:    ctx,
 		nc:     nc,
-		server: s,
+		service: s,
 
 		encodings: []string{"protobuf"},
 	}
 }
 
-func NewSvcCustomSubjectConcurrentHandler(workers *nrpc.WorkerPool, nc nrpc.NatsConn, s SvcCustomSubjectServer) *SvcCustomSubjectHandler {
+func NewSvcCustomSubjectConcurrentHandler(workers *nrpc.WorkerPool, nc nrpc.NatsConn, s SvcCustomSubjectService) *SvcCustomSubjectHandler {
 	return &SvcCustomSubjectHandler{
 		workers: workers,
 		nc:      nc,
-		server:  s,
+		service:  s,
 	}
 }
 
@@ -115,7 +115,7 @@ func (h *SvcCustomSubjectHandler) Handler(msg *nats.Msg) {
 			}
 		} else {
 			request.Handler = func(ctx context.Context)(proto.Message, error){
-				innerResp, err := h.server.MtSimpleReply(ctx, req)
+				innerResp, err := h.service.MtSimpleReply(ctx, req)
 				if err != nil {
 					return nil, err
 				}
@@ -138,7 +138,7 @@ func (h *SvcCustomSubjectHandler) Handler(msg *nats.Msg) {
 		} else {
 			request.Handler = func(ctx context.Context)(proto.Message, error){
 				var innerResp nrpc.Void
-				err := h.server.MtVoidReply(ctx, req)
+				err := h.service.MtVoidReply(ctx, req)
 				if err != nil {
 					return nil, err
 				}
@@ -164,7 +164,7 @@ func (h *SvcCustomSubjectHandler) Handler(msg *nats.Msg) {
 		} else {
 			request.EnableStreamedReply()
 			request.Handler = func(ctx context.Context)(proto.Message, error){
-				err := h.server.MtStreamedReply(ctx, req, func(rep SimpleStringReply){
+				err := h.service.MtStreamedReply(ctx, req, func(rep SimpleStringReply){
 					request.SendStreamReply(&rep)
 				})
 				return nil, err
@@ -176,7 +176,7 @@ func (h *SvcCustomSubjectHandler) Handler(msg *nats.Msg) {
 			log.Printf("MtVoidReqStreamedReplyHanlder: MtVoidReqStreamedReply subject parsing failed: %v", err)
 			break
 		}
-		var req github_com_nats_rpc_nrpc.Void
+		var req github_com_teamlint_nrpc.Void
 		if err := nrpc.Unmarshal(request.Encoding, msg.Data, &req); err != nil {
 			log.Printf("MtVoidReqStreamedReplyHandler: MtVoidReqStreamedReply request unmarshal failed: %v", err)
 			immediateError = &nrpc.Error{
@@ -186,7 +186,7 @@ func (h *SvcCustomSubjectHandler) Handler(msg *nats.Msg) {
 		} else {
 			request.EnableStreamedReply()
 			request.Handler = func(ctx context.Context)(proto.Message, error){
-				err := h.server.MtVoidReqStreamedReply(ctx, func(rep SimpleStringReply){
+				err := h.service.MtVoidReqStreamedReply(ctx, func(rep SimpleStringReply){
 					request.SendStreamReply(&rep)
 				})
 				return nil, err
@@ -239,6 +239,14 @@ func NewSvcCustomSubjectClient(nc nrpc.NatsConn, pkgParaminstance string) *SvcCu
 	}
 }
 
+func (c *SvcCustomSubjectClient) SetEncoding(encoding string) {
+	c.Encoding = encoding
+}
+
+func (c *SvcCustomSubjectClient) SetTimeout(t time.Duration) {
+	c.Timeout = t
+}
+
 func (c *SvcCustomSubjectClient) MtSimpleReply(req StringArg) (resp SimpleStringReply, err error) {
 
 	subject := c.PkgSubject + "." + c.PkgParaminstance + "." + c.Subject + "." + "mt_simple_reply"
@@ -257,7 +265,7 @@ func (c *SvcCustomSubjectClient) MtVoidReply(req StringArg) (err error) {
 	subject := c.PkgSubject + "." + c.PkgParaminstance + "." + c.Subject + "." + "mtvoidreply"
 
 	// call
-	var resp github_com_nats_rpc_nrpc.Void
+	var resp github_com_teamlint_nrpc.Void
 	err = nrpc.Call(&req, &resp, c.nc, subject, c.Encoding, c.Timeout)
 	if err != nil {
 		return // already logged
@@ -385,40 +393,40 @@ func (c *SvcCustomSubjectClient) MtVoidReqStreamedReply(
 	return err
 }
 
-// SvcSubjectParamsServer is the interface that providers of the service
+// SvcSubjectParamsService is the interface that providers of the service
 // SvcSubjectParams should implement.
-type SvcSubjectParamsServer interface {
+type SvcSubjectParamsService interface {
 	MtWithSubjectParams(ctx context.Context, mp1 string, mp2 string) (resp SimpleStringReply, err error)
 	MtStreamedReplyWithSubjectParams(ctx context.Context, mp1 string, mp2 string, pushRep func(SimpleStringReply)) (err error)
 	MtNoReply(ctx context.Context)
 }
 
 // SvcSubjectParamsHandler provides a NATS subscription handler that can serve a
-// subscription using a given SvcSubjectParamsServer implementation.
+// subscription using a given SvcSubjectParamsService implementation.
 type SvcSubjectParamsHandler struct {
 	ctx     context.Context
 	workers *nrpc.WorkerPool
 	nc      nrpc.NatsConn
-	server  SvcSubjectParamsServer
+	service  SvcSubjectParamsService
 
 	encodings []string
 }
 
-func NewSvcSubjectParamsHandler(ctx context.Context, nc nrpc.NatsConn, s SvcSubjectParamsServer) *SvcSubjectParamsHandler {
+func NewSvcSubjectParamsHandler(ctx context.Context, nc nrpc.NatsConn, s SvcSubjectParamsService) *SvcSubjectParamsHandler {
 	return &SvcSubjectParamsHandler{
 		ctx:    ctx,
 		nc:     nc,
-		server: s,
+		service: s,
 
 		encodings: []string{"protobuf"},
 	}
 }
 
-func NewSvcSubjectParamsConcurrentHandler(workers *nrpc.WorkerPool, nc nrpc.NatsConn, s SvcSubjectParamsServer) *SvcSubjectParamsHandler {
+func NewSvcSubjectParamsConcurrentHandler(workers *nrpc.WorkerPool, nc nrpc.NatsConn, s SvcSubjectParamsService) *SvcSubjectParamsHandler {
 	return &SvcSubjectParamsHandler{
 		workers: workers,
 		nc:      nc,
-		server:  s,
+		service:  s,
 	}
 }
 
@@ -480,7 +488,7 @@ func (h *SvcSubjectParamsHandler) Handler(msg *nats.Msg) {
 			log.Printf("MtWithSubjectParamsHanlder: MtWithSubjectParams subject parsing failed: %v", err)
 			break
 		}
-		var req github_com_nats_rpc_nrpc.Void
+		var req github_com_teamlint_nrpc.Void
 		if err := nrpc.Unmarshal(request.Encoding, msg.Data, &req); err != nil {
 			log.Printf("MtWithSubjectParamsHandler: MtWithSubjectParams request unmarshal failed: %v", err)
 			immediateError = &nrpc.Error{
@@ -489,7 +497,7 @@ func (h *SvcSubjectParamsHandler) Handler(msg *nats.Msg) {
 			}
 		} else {
 			request.Handler = func(ctx context.Context)(proto.Message, error){
-				innerResp, err := h.server.MtWithSubjectParams(ctx, mtParams[0], mtParams[1])
+				innerResp, err := h.service.MtWithSubjectParams(ctx, mtParams[0], mtParams[1])
 				if err != nil {
 					return nil, err
 				}
@@ -503,7 +511,7 @@ func (h *SvcSubjectParamsHandler) Handler(msg *nats.Msg) {
 			log.Printf("MtStreamedReplyWithSubjectParamsHanlder: MtStreamedReplyWithSubjectParams subject parsing failed: %v", err)
 			break
 		}
-		var req github_com_nats_rpc_nrpc.Void
+		var req github_com_teamlint_nrpc.Void
 		if err := nrpc.Unmarshal(request.Encoding, msg.Data, &req); err != nil {
 			log.Printf("MtStreamedReplyWithSubjectParamsHandler: MtStreamedReplyWithSubjectParams request unmarshal failed: %v", err)
 			immediateError = &nrpc.Error{
@@ -513,7 +521,7 @@ func (h *SvcSubjectParamsHandler) Handler(msg *nats.Msg) {
 		} else {
 			request.EnableStreamedReply()
 			request.Handler = func(ctx context.Context)(proto.Message, error){
-				err := h.server.MtStreamedReplyWithSubjectParams(ctx, mtParams[0], mtParams[1], func(rep SimpleStringReply){
+				err := h.service.MtStreamedReplyWithSubjectParams(ctx, mtParams[0], mtParams[1], func(rep SimpleStringReply){
 					request.SendStreamReply(&rep)
 				})
 				return nil, err
@@ -526,7 +534,7 @@ func (h *SvcSubjectParamsHandler) Handler(msg *nats.Msg) {
 			log.Printf("MtNoReplyHanlder: MtNoReply subject parsing failed: %v", err)
 			break
 		}
-		var req github_com_nats_rpc_nrpc.Void
+		var req github_com_teamlint_nrpc.Void
 		if err := nrpc.Unmarshal(request.Encoding, msg.Data, &req); err != nil {
 			log.Printf("MtNoReplyHandler: MtNoReply request unmarshal failed: %v", err)
 			immediateError = &nrpc.Error{
@@ -535,7 +543,7 @@ func (h *SvcSubjectParamsHandler) Handler(msg *nats.Msg) {
 			}
 		} else {
 			request.Handler = func(ctx context.Context)(proto.Message, error){var innerResp nrpc.NoReply
-				h.server.MtNoReply(ctx)
+				h.service.MtNoReply(ctx)
 				if err != nil {
 					return nil, err
 				}
@@ -594,12 +602,20 @@ func NewSvcSubjectParamsClient(nc nrpc.NatsConn, pkgParaminstance string, svcPar
 	}
 }
 
+func (c *SvcSubjectParamsClient) SetEncoding(encoding string) {
+	c.Encoding = encoding
+}
+
+func (c *SvcSubjectParamsClient) SetTimeout(t time.Duration) {
+	c.Timeout = t
+}
+
 func (c *SvcSubjectParamsClient) MtWithSubjectParams(mp1 string, mp2 string, ) (resp SimpleStringReply, err error) {
 
 	subject := c.PkgSubject + "." + c.PkgParaminstance + "." + c.Subject + "." + c.SvcParamclientid + "." + "mtwithsubjectparams" + "." + mp1 + "." + mp2
 
 	// call
-	var req github_com_nats_rpc_nrpc.Void
+	var req github_com_teamlint_nrpc.Void
 	err = nrpc.Call(&req, &resp, c.nc, subject, c.Encoding, c.Timeout)
 	if err != nil {
 		return // already logged
@@ -638,8 +654,8 @@ func (c *SvcSubjectParamsClient) MtNoReply() (err error) {
 	subject := c.PkgSubject + "." + c.PkgParaminstance + "." + c.Subject + "." + c.SvcParamclientid + "." + "mtnoreply"
 
 	// call
-	var req github_com_nats_rpc_nrpc.Void
-	var resp github_com_nats_rpc_nrpc.NoReply
+	var req github_com_teamlint_nrpc.Void
+	var resp github_com_teamlint_nrpc.NoReply
 	err = nrpc.Call(&req, &resp, c.nc, subject, c.Encoding, c.Timeout)
 	if err != nil {
 		return // already logged
@@ -716,37 +732,37 @@ func (c *SvcSubjectParamsClient) MtNoRequestWParamsSubscribeChan(
 	return ch, sub, err
 }
 
-// NoRequestServiceServer is the interface that providers of the service
+// NoRequestServiceService is the interface that providers of the service
 // NoRequestService should implement.
-type NoRequestServiceServer interface {
+type NoRequestServiceService interface {
 }
 
 // NoRequestServiceHandler provides a NATS subscription handler that can serve a
-// subscription using a given NoRequestServiceServer implementation.
+// subscription using a given NoRequestServiceService implementation.
 type NoRequestServiceHandler struct {
 	ctx     context.Context
 	workers *nrpc.WorkerPool
 	nc      nrpc.NatsConn
-	server  NoRequestServiceServer
+	service  NoRequestServiceService
 
 	encodings []string
 }
 
-func NewNoRequestServiceHandler(ctx context.Context, nc nrpc.NatsConn, s NoRequestServiceServer) *NoRequestServiceHandler {
+func NewNoRequestServiceHandler(ctx context.Context, nc nrpc.NatsConn, s NoRequestServiceService) *NoRequestServiceHandler {
 	return &NoRequestServiceHandler{
 		ctx:    ctx,
 		nc:     nc,
-		server: s,
+		service: s,
 
 		encodings: []string{"protobuf"},
 	}
 }
 
-func NewNoRequestServiceConcurrentHandler(workers *nrpc.WorkerPool, nc nrpc.NatsConn, s NoRequestServiceServer) *NoRequestServiceHandler {
+func NewNoRequestServiceConcurrentHandler(workers *nrpc.WorkerPool, nc nrpc.NatsConn, s NoRequestServiceService) *NoRequestServiceHandler {
 	return &NoRequestServiceHandler{
 		workers: workers,
 		nc:      nc,
-		server:  s,
+		service:  s,
 	}
 }
 
@@ -795,6 +811,14 @@ func NewNoRequestServiceClient(nc nrpc.NatsConn, pkgParaminstance string) *NoReq
 		Encoding: "protobuf",
 		Timeout: 5 * time.Second,
 	}
+}
+
+func (c *NoRequestServiceClient) SetEncoding(encoding string) {
+	c.Encoding = encoding
+}
+
+func (c *NoRequestServiceClient) SetTimeout(t time.Duration) {
+	c.Timeout = t
 }
 
 func (c *NoRequestServiceClient) MtNoRequestSubject(

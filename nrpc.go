@@ -30,9 +30,13 @@ type NatsConn interface {
 	PublishRequest(subj, reply string, data []byte) error
 	Request(subj string, data []byte, timeout time.Duration) (*nats.Msg, error)
 
-	ChanSubscribe(subj string, ch chan *nats.Msg) (*nats.Subscription, error)
 	Subscribe(subj string, handler nats.MsgHandler) (*nats.Subscription, error)
+	ChanSubscribe(subj string, ch chan *nats.Msg) (*nats.Subscription, error)
 	SubscribeSync(subj string) (*nats.Subscription, error)
+
+	QueueSubscribe(subj, queue string, handler nats.MsgHandler) (*nats.Subscription, error)
+	ChanQueueSubscribe(subj, queue string, ch chan *nats.Msg) (*nats.Subscription, error)
+	QueueSubscribeSync(subj, queue string) (*nats.Subscription, error)
 }
 
 // ReplyInboxMaker returns a new inbox subject for a given nats connection.

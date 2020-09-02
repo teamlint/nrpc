@@ -8,41 +8,41 @@ import (
 
 	"google.golang.org/protobuf/proto"
 	"github.com/nats-io/nats.go"
-	"github.com/nats-rpc/nrpc"
+	"github.com/teamlint/nrpc"
 )
 
-// GreeterServer is the interface that providers of the service
+// GreeterService is the interface that providers of the service
 // Greeter should implement.
-type GreeterServer interface {
+type GreeterService interface {
 	SayHello(ctx context.Context, req HelloRequest) (resp HelloReply, err error)
 }
 
 // GreeterHandler provides a NATS subscription handler that can serve a
-// subscription using a given GreeterServer implementation.
+// subscription using a given GreeterService implementation.
 type GreeterHandler struct {
 	ctx     context.Context
 	workers *nrpc.WorkerPool
 	nc      nrpc.NatsConn
-	server  GreeterServer
+	service  GreeterService
 
 	encodings []string
 }
 
-func NewGreeterHandler(ctx context.Context, nc nrpc.NatsConn, s GreeterServer) *GreeterHandler {
+func NewGreeterHandler(ctx context.Context, nc nrpc.NatsConn, s GreeterService) *GreeterHandler {
 	return &GreeterHandler{
 		ctx:    ctx,
 		nc:     nc,
-		server: s,
+		service: s,
 
 		encodings: []string{"protobuf"},
 	}
 }
 
-func NewGreeterConcurrentHandler(workers *nrpc.WorkerPool, nc nrpc.NatsConn, s GreeterServer) *GreeterHandler {
+func NewGreeterConcurrentHandler(workers *nrpc.WorkerPool, nc nrpc.NatsConn, s GreeterService) *GreeterHandler {
 	return &GreeterHandler{
 		workers: workers,
 		nc:      nc,
-		server:  s,
+		service:  s,
 	}
 }
 
@@ -92,7 +92,7 @@ func (h *GreeterHandler) Handler(msg *nats.Msg) {
 			}
 		} else {
 			request.Handler = func(ctx context.Context)(proto.Message, error){
-				innerResp, err := h.server.SayHello(ctx, req)
+				innerResp, err := h.service.SayHello(ctx, req)
 				if err != nil {
 					return nil, err
 				}
@@ -140,6 +140,14 @@ func NewGreeterClient(nc nrpc.NatsConn) *GreeterClient {
 		Encoding: "protobuf",
 		Timeout: 5 * time.Second,
 	}
+}
+
+func (c *GreeterClient) SetEncoding(encoding string) {
+	c.Encoding = encoding
+}
+
+func (c *GreeterClient) SetTimeout(t time.Duration) {
+	c.Timeout = t
 }
 
 func (c *GreeterClient) SayHello(req HelloRequest) (resp HelloReply, err error) {

@@ -21,14 +21,14 @@ import (
 	{{- if Prometheus}}
 	"github.com/prometheus/client_golang/prometheus"
 	{{- end}}
-	"github.com/nats-rpc/nrpc"
+	"github.com/teamlint/nrpc"
 )
 
 {{- range .Service}}
 
-// {{.GetName}}Server is the interface that providers of the service
+// {{.GetName}}Service is the interface that providers of the service
 // {{.GetName}} should implement.
-type {{.GetName}}Server interface {
+type {{.GetName}}Service interface {
 	{{- range .Method}}
 	{{- if ne .GetInputType ".nrpc.NoRequest"}}
 	{{- $resultType := GetResultType .}}
@@ -68,9 +68,9 @@ var (
 		[]string{"method"})
 
 	// The handler execution time, measured at server-side.
-	serverHETFor{{.GetName}} = prometheus.NewSummaryVec(
+	serviceHETFor{{.GetName}} = prometheus.NewSummaryVec(
 		prometheus.SummaryOpts{
-			Name:       "nrpc_server_handler_execution_time_seconds",
+			Name:       "nrpc_service_handler_execution_time_seconds",
 			Help:       "The handler execution time for calls, measured server-side.",
 			Objectives: map[float64]float64{0.9: 0.01, 0.95: 0.01, 0.99: 0.001},
 			ConstLabels: map[string]string{
@@ -90,11 +90,11 @@ var (
 		},
 		[]string{"method", "encoding", "result_type"})
 
-	// The counts of requests handled by the server, classified by result type.
-	serverRequestsFor{{.GetName}} = prometheus.NewCounterVec(
+	// The counts of requests handled by the service, classified by result type.
+	serviceRequestsFor{{.GetName}} = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "nrpc_server_requests_count",
-			Help: "The count of requests handled by the server.",
+			Name: "nrpc_service_requests_count",
+			Help: "The count of requests handled by the service.",
 			ConstLabels: map[string]string{
 				"service": "{{.GetName}}",
 			},
@@ -104,31 +104,31 @@ var (
 {{- end}}
 
 // {{.GetName}}Handler provides a NATS subscription handler that can serve a
-// subscription using a given {{.GetName}}Server implementation.
+// subscription using a given {{.GetName}}Service implementation.
 type {{.GetName}}Handler struct {
 	ctx     context.Context
 	workers *nrpc.WorkerPool
 	nc      nrpc.NatsConn
-	server  {{.GetName}}Server
+	service  {{.GetName}}Service
 
 	encodings []string
 }
 
-func New{{.GetName}}Handler(ctx context.Context, nc nrpc.NatsConn, s {{.GetName}}Server) *{{.GetName}}Handler {
+func New{{.GetName}}Handler(ctx context.Context, nc nrpc.NatsConn, s {{.GetName}}Service) *{{.GetName}}Handler {
 	return &{{.GetName}}Handler{
 		ctx:    ctx,
 		nc:     nc,
-		server: s,
+		service: s,
 
 		encodings: []string{"protobuf"},
 	}
 }
 
-func New{{.GetName}}ConcurrentHandler(workers *nrpc.WorkerPool, nc nrpc.NatsConn, s {{.GetName}}Server) *{{.GetName}}Handler {
+func New{{.GetName}}ConcurrentHandler(workers *nrpc.WorkerPool, nc nrpc.NatsConn, s {{.GetName}}Service) *{{.GetName}}Handler {
 	return &{{.GetName}}Handler{
 		workers: workers,
 		nc:      nc,
-		server:  s,
+		service:  s,
 	}
 }
 
@@ -241,14 +241,14 @@ func (h *{{.GetName}}Handler) Handler(msg *nats.Msg) {
 				Message: "bad request received: " + err.Error(),
 			}
 {{- if Prometheus}}
-			serverRequestsFor{{$serviceName}}.WithLabelValues(
+			serviceRequestsFor{{$serviceName}}.WithLabelValues(
 				"{{.GetName}}", request.Encoding, "unmarshal_fail").Inc()
 {{- end}}
 		} else {
 			{{- if HasStreamedReply .}}
 			request.EnableStreamedReply()
 			request.Handler = func(ctx context.Context)(proto.Message, error){
-				err := h.server.{{.GetName}}(ctx
+				err := h.service.{{.GetName}}(ctx
 				{{- range $i, $p := GetMethodSubjectParams . -}}
 				, mtParams[{{ $i }}]
 				{{- end -}}
@@ -269,7 +269,7 @@ func (h *{{.GetName}}Handler) Handler(msg *nats.Msg) {
 				var innerResp nrpc.Void
 				{{else}}innerResp, {{end -}}
 				err := {{end -}}
-				h.server.{{.GetName}}(ctx
+				h.service.{{.GetName}}(ctx
 				{{- range $i, $p := GetMethodSubjectParams . -}}
 				, mtParams[{{ $i }}]
 				{{- end -}}
@@ -293,7 +293,7 @@ func (h *{{.GetName}}Handler) Handler(msg *nats.Msg) {
 			Message: "unknown name: " + name,
 		}
 {{- if Prometheus}}
-		serverRequestsFor{{.GetName}}.WithLabelValues(
+		serviceRequestsFor{{.GetName}}.WithLabelValues(
 			"{{.GetName}}", request.Encoding, "name_fail").Inc()
 {{- end}}
 	}
@@ -301,18 +301,18 @@ func (h *{{.GetName}}Handler) Handler(msg *nats.Msg) {
 {{- if Prometheus}}
 	request.AfterReply = func(request *nrpc.Request, success, replySuccess bool) {
 		if !replySuccess {
-			serverRequestsFor{{$serviceName}}.WithLabelValues(
+			serviceRequestsFor{{$serviceName}}.WithLabelValues(
 				request.MethodName, request.Encoding, "sendreply_fail").Inc()
 		}
 		if success {
-			serverRequestsFor{{$serviceName}}.WithLabelValues(
+			serviceRequestsFor{{$serviceName}}.WithLabelValues(
 				request.MethodName, request.Encoding, "success").Inc()
 		} else {
-			serverRequestsFor{{$serviceName}}.WithLabelValues(
+			serviceRequestsFor{{$serviceName}}.WithLabelValues(
 				request.MethodName, request.Encoding, "handler_fail").Inc()
 		}
 		// report metric to Prometheus
-		serverHETFor{{$serviceName}}.WithLabelValues(request.MethodName).Observe(
+		serviceHETFor{{$serviceName}}.WithLabelValues(request.MethodName).Observe(
 			request.Elapsed().Seconds())
 	}
 
@@ -333,12 +333,12 @@ func (h *{{.GetName}}Handler) Handler(msg *nats.Msg) {
 		if err := request.SendReply(nil, immediateError); err != nil {
 			log.Printf("{{.GetName}}Handler: {{.GetName}} handler failed to publish the response: %s", err)
 {{- if Prometheus}}
-			serverRequestsFor{{$serviceName}}.WithLabelValues(
+			serviceRequestsFor{{$serviceName}}.WithLabelValues(
 				request.MethodName, request.Encoding, "handler_fail").Inc()
 {{- end}}
 		}
 {{- if Prometheus}}
-		serverHETFor{{$serviceName}}.WithLabelValues(request.MethodName).Observe(
+		serviceHETFor{{$serviceName}}.WithLabelValues(request.MethodName).Observe(
 			request.Elapsed().Seconds())
 {{- end}}
 	} else {
@@ -385,6 +385,14 @@ func New{{.GetName}}Client(nc nrpc.NatsConn
 		Encoding: "protobuf",
 		Timeout: 5 * time.Second,
 	}
+}
+
+func (c *{{.GetName}}Client) SetEncoding(encoding string) {
+	c.Encoding = encoding
+}
+
+func (c *{{.GetName}}Client) SetTimeout(t time.Duration) {
+	c.Timeout = t
 }
 {{- $serviceName := .GetName}}
 {{- $serviceSubjectParams := GetServiceSubjectParams .}}
@@ -691,9 +699,9 @@ func init() {
 {{- range .Service}}
 	// register metrics for service {{.GetName}}
 	prometheus.MustRegister(clientRCTFor{{.GetName}})
-	prometheus.MustRegister(serverHETFor{{.GetName}})
+	prometheus.MustRegister(serviceHETFor{{.GetName}})
 	prometheus.MustRegister(clientCallsFor{{.GetName}})
-	prometheus.MustRegister(serverRequestsFor{{.GetName}})
+	prometheus.MustRegister(serviceRequestsFor{{.GetName}})
 {{- end}}
 }
 {{- end}}`

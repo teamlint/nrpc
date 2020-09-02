@@ -9,12 +9,12 @@ import (
 	"google.golang.org/protobuf/proto"
 	"github.com/nats-io/nats.go"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/nats-rpc/nrpc"
+	"github.com/teamlint/nrpc"
 )
 
-// GreeterServer is the interface that providers of the service
+// GreeterService is the interface that providers of the service
 // Greeter should implement.
-type GreeterServer interface {
+type GreeterService interface {
 	SayHello(ctx context.Context, req HelloRequest) (resp HelloReply, err error)
 }
 
@@ -32,9 +32,9 @@ var (
 		[]string{"method"})
 
 	// The handler execution time, measured at server-side.
-	serverHETForGreeter = prometheus.NewSummaryVec(
+	serviceHETForGreeter = prometheus.NewSummaryVec(
 		prometheus.SummaryOpts{
-			Name:       "nrpc_server_handler_execution_time_seconds",
+			Name:       "nrpc_service_handler_execution_time_seconds",
 			Help:       "The handler execution time for calls, measured server-side.",
 			Objectives: map[float64]float64{0.9: 0.01, 0.95: 0.01, 0.99: 0.001},
 			ConstLabels: map[string]string{
@@ -54,11 +54,11 @@ var (
 		},
 		[]string{"method", "encoding", "result_type"})
 
-	// The counts of requests handled by the server, classified by result type.
-	serverRequestsForGreeter = prometheus.NewCounterVec(
+	// The counts of requests handled by the service, classified by result type.
+	serviceRequestsForGreeter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "nrpc_server_requests_count",
-			Help: "The count of requests handled by the server.",
+			Name: "nrpc_service_requests_count",
+			Help: "The count of requests handled by the service.",
 			ConstLabels: map[string]string{
 				"service": "Greeter",
 			},
@@ -67,31 +67,31 @@ var (
 )
 
 // GreeterHandler provides a NATS subscription handler that can serve a
-// subscription using a given GreeterServer implementation.
+// subscription using a given GreeterService implementation.
 type GreeterHandler struct {
 	ctx     context.Context
 	workers *nrpc.WorkerPool
 	nc      nrpc.NatsConn
-	server  GreeterServer
+	service  GreeterService
 
 	encodings []string
 }
 
-func NewGreeterHandler(ctx context.Context, nc nrpc.NatsConn, s GreeterServer) *GreeterHandler {
+func NewGreeterHandler(ctx context.Context, nc nrpc.NatsConn, s GreeterService) *GreeterHandler {
 	return &GreeterHandler{
 		ctx:    ctx,
 		nc:     nc,
-		server: s,
+		service: s,
 
 		encodings: []string{"protobuf"},
 	}
 }
 
-func NewGreeterConcurrentHandler(workers *nrpc.WorkerPool, nc nrpc.NatsConn, s GreeterServer) *GreeterHandler {
+func NewGreeterConcurrentHandler(workers *nrpc.WorkerPool, nc nrpc.NatsConn, s GreeterService) *GreeterHandler {
 	return &GreeterHandler{
 		workers: workers,
 		nc:      nc,
-		server:  s,
+		service:  s,
 	}
 }
 
@@ -139,11 +139,11 @@ func (h *GreeterHandler) Handler(msg *nats.Msg) {
 				Type: nrpc.Error_CLIENT,
 				Message: "bad request received: " + err.Error(),
 			}
-			serverRequestsForGreeter.WithLabelValues(
+			serviceRequestsForGreeter.WithLabelValues(
 				"SayHello", request.Encoding, "unmarshal_fail").Inc()
 		} else {
 			request.Handler = func(ctx context.Context)(proto.Message, error){
-				innerResp, err := h.server.SayHello(ctx, req)
+				innerResp, err := h.service.SayHello(ctx, req)
 				if err != nil {
 					return nil, err
 				}
@@ -156,23 +156,23 @@ func (h *GreeterHandler) Handler(msg *nats.Msg) {
 			Type: nrpc.Error_CLIENT,
 			Message: "unknown name: " + name,
 		}
-		serverRequestsForGreeter.WithLabelValues(
+		serviceRequestsForGreeter.WithLabelValues(
 			"Greeter", request.Encoding, "name_fail").Inc()
 	}
 	request.AfterReply = func(request *nrpc.Request, success, replySuccess bool) {
 		if !replySuccess {
-			serverRequestsForGreeter.WithLabelValues(
+			serviceRequestsForGreeter.WithLabelValues(
 				request.MethodName, request.Encoding, "sendreply_fail").Inc()
 		}
 		if success {
-			serverRequestsForGreeter.WithLabelValues(
+			serviceRequestsForGreeter.WithLabelValues(
 				request.MethodName, request.Encoding, "success").Inc()
 		} else {
-			serverRequestsForGreeter.WithLabelValues(
+			serviceRequestsForGreeter.WithLabelValues(
 				request.MethodName, request.Encoding, "handler_fail").Inc()
 		}
 		// report metric to Prometheus
-		serverHETForGreeter.WithLabelValues(request.MethodName).Observe(
+		serviceHETForGreeter.WithLabelValues(request.MethodName).Observe(
 			request.Elapsed().Seconds())
 	}
 	if immediateError == nil {
@@ -190,10 +190,10 @@ func (h *GreeterHandler) Handler(msg *nats.Msg) {
 	if immediateError != nil {
 		if err := request.SendReply(nil, immediateError); err != nil {
 			log.Printf("GreeterHandler: Greeter handler failed to publish the response: %s", err)
-			serverRequestsForGreeter.WithLabelValues(
+			serviceRequestsForGreeter.WithLabelValues(
 				request.MethodName, request.Encoding, "handler_fail").Inc()
 		}
-		serverHETForGreeter.WithLabelValues(request.MethodName).Observe(
+		serviceHETForGreeter.WithLabelValues(request.MethodName).Observe(
 			request.Elapsed().Seconds())
 	} else {
 	}
@@ -213,6 +213,14 @@ func NewGreeterClient(nc nrpc.NatsConn) *GreeterClient {
 		Encoding: "protobuf",
 		Timeout: 5 * time.Second,
 	}
+}
+
+func (c *GreeterClient) SetEncoding(encoding string) {
+	c.Encoding = encoding
+}
+
+func (c *GreeterClient) SetTimeout(t time.Duration) {
+	c.Timeout = t
 }
 
 func (c *GreeterClient) SayHello(req HelloRequest) (resp HelloReply, err error) {
@@ -271,7 +279,7 @@ func (c *Client) SetTimeout(t time.Duration) {
 func init() {
 	// register metrics for service Greeter
 	prometheus.MustRegister(clientRCTForGreeter)
-	prometheus.MustRegister(serverHETForGreeter)
+	prometheus.MustRegister(serviceHETForGreeter)
 	prometheus.MustRegister(clientCallsForGreeter)
-	prometheus.MustRegister(serverRequestsForGreeter)
+	prometheus.MustRegister(serviceRequestsForGreeter)
 }

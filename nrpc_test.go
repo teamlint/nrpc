@@ -12,7 +12,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/nats-rpc/nrpc"
+	"github.com/teamlint/nrpc"
 )
 
 //go:generate protoc --go_out=. --go_opt=paths=source_relative nrpc_test.proto
