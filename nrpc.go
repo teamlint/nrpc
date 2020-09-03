@@ -663,7 +663,9 @@ type KeepStreamAlive struct {
 }
 
 func (k *KeepStreamAlive) Stop() {
-	close(k.c)
+	if k != nil {
+		close(k.c)
+	}
 }
 
 func (k *KeepStreamAlive) loop() {

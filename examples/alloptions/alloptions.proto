@@ -2,9 +2,9 @@ syntax = "proto3";
 
 package main;
 
-option go_package = ".;main";
+option go_package = "github.com/teamlint/nrpc/examples/alloptions;main";
 
-import "nrpc/nrpc.proto";
+import "nrpc.proto";
 
 option (nrpc.packageSubject) = "root";
 option (nrpc.packageSubjectParams) = "instance";
