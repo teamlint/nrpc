@@ -17,6 +17,10 @@ import (
 	plugin "google.golang.org/protobuf/types/pluginpb"
 )
 
+const (
+	ExcludedPkg = "github.com/teamlint/nrpc"
+)
+
 // baseName returns the last path element of the name, with the last dotted suffix removed.
 func baseName(name string) string {
 	// First, find the last element
@@ -265,11 +269,19 @@ var funcMap = template.FuncMap{
 		for _, sd := range fd.GetService() {
 			for _, md := range sd.GetMethod() {
 				goPkg, _ := getGoType(md.GetInputType())
+				// exclue teamlint/nrpc pkg
+				if goPkg == ExcludedPkg {
+					continue
+				}
 				pkgImportName := getPkgImportName(goPkg)
 				if pkgImportName != "" {
 					imports[pkgImportName] = goPkg
 				}
 				goPkg, _ = getGoType(getResultType(md))
+				// exclue teamlint/nrpc pkg
+				if goPkg == ExcludedPkg {
+					continue
+				}
 				pkgImportName = getPkgImportName(goPkg)
 				if pkgImportName != "" {
 					imports[pkgImportName] = goPkg
@@ -393,7 +405,6 @@ var request plugin.CodeGeneratorRequest
 var currentFile *descriptor.FileDescriptorProto
 
 func main() {
-
 	log.SetPrefix("protoc-gen-nrpc: ")
 	data, err := ioutil.ReadAll(os.Stdin)
 	if err != nil {

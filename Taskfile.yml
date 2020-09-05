@@ -1,0 +1,20 @@
+# https://taskfile.dev
+
+version: '3'
+
+vars:
+  GREETING: "NRPC"
+
+tasks:
+  default:
+    cmds:
+      - echo "{{.GREETING}}"
+    silent: true
+
+  install:
+    desc: "install protoc-gen-nrpc"
+    cmds:
+      - echo "protoc-gen-nrpc installing..."
+      - go install ./protoc-gen-nrpc
+      - echo "protoc-gen-nrpc installed."
+    silent: true

@@ -31,7 +31,7 @@ type BasicServerImpl struct {
 
 func (s BasicServerImpl) MtSimpleReply(
 	ctx context.Context, args StringArg,
-) (resp SimpleStringReply, err error) {
+) (resp *SimpleStringReply, err error) {
 	if instance := nrpc.GetRequest(ctx).PackageParam("instance"); instance != "default" {
 		s.t.Errorf("Got an invalid package param instance: '%s'", instance)
 	}
@@ -49,7 +49,7 @@ func (s BasicServerImpl) MtVoidReply(
 }
 
 func (s BasicServerImpl) MtStreamedReply(
-	ctx context.Context, req StringArg, send func(rep SimpleStringReply),
+	ctx context.Context, req *StringArg, send func(rep *SimpleStringReply),
 ) error {
 	if req.GetArg1() == "please fail" {
 		panic("Failing")
@@ -83,8 +83,8 @@ func (s BasicServerImpl) MtVoidReqStreamedReply(
 
 func (s BasicServerImpl) MtNoReply(ctx context.Context) {
 	s.t.Log("Will publish to MtNoRequest")
-	s.handler.MtNoRequestPublish("default", SimpleStringReply{Reply: "Hi there"})
-	s.handler2.MtNoRequestWParamsPublish("default", "me", "mtvalue", SimpleStringReply{Reply: "Hi there"})
+	s.handler.MtNoRequestPublish("default", &SimpleStringReply{Reply: "Hi there"})
+	s.handler2.MtNoRequestWParamsPublish("default", "me", "mtvalue", &SimpleStringReply{Reply: "Hi there"})
 }
 
 func (s BasicServerImpl) MtWithSubjectParams(
@@ -195,12 +195,12 @@ func TestAll(t *testing.T) {
 
 		// Now a few tests very specific to concurrency handling
 
-		s, err := c.QueueSubscribe(handler1.Subject(), "queue", handler1.Handler)
+		s, err := c.QueueSubscribe(handler1.Subject(), "queue", handler1.MsgHandler)
 		if err != nil {
 			t.Fatal(err)
 		}
 		defer s.Unsubscribe()
-		s, err = c.QueueSubscribe(handler2.Subject(), "queue", handler2.Handler)
+		s, err = c.QueueSubscribe(handler2.Subject(), "queue", handler2.MsgHandler)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -313,12 +313,12 @@ func commonTests(
 	return func(t *testing.T) {
 		handler1.SetEncodings([]string{encoding})
 		handler2.SetEncodings([]string{encoding})
-		s, err := conn.QueueSubscribe(handler1.Subject(), "queue", handler1.Handler)
+		s, err := conn.QueueSubscribe(handler1.Subject(), "queue", handler1.MsgHandler)
 		if err != nil {
 			t.Fatal(err)
 		}
 		defer s.Unsubscribe()
-		s, err = conn.QueueSubscribe(handler2.Subject(), "queue", handler2.Handler)
+		s, err = conn.QueueSubscribe(handler2.Subject(), "queue", handler2.MsgHandler)
 		if err != nil {
 			t.Fatal(err)
 		}
