@@ -23,24 +23,24 @@ func (w TestingLogWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
+// BasicServerImpl NRPC 服务实现
 type BasicServerImpl struct {
 	t        *testing.T
 	handler  *SvcCustomSubjectHandler
 	handler2 *SvcSubjectParamsHandler
 }
 
-func (s BasicServerImpl) MtSimpleReply(
-	ctx context.Context, args StringArg,
-) (resp *SimpleStringReply, err error) {
+func (s BasicServerImpl) MtSimpleReply(ctx context.Context, args *StringArg) (resp *SimpleStringReply, err error) {
 	if instance := nrpc.GetRequest(ctx).PackageParam("instance"); instance != "default" {
 		s.t.Errorf("Got an invalid package param instance: '%s'", instance)
 	}
 	resp.Reply = args.Arg1
+	fmt.Printf("MtSimpleReply args=%+v, resp=%+v", args, resp)
 	return
 }
 
 func (s BasicServerImpl) MtVoidReply(
-	ctx context.Context, args StringArg,
+	ctx context.Context, args *StringArg,
 ) (err error) {
 	if args.GetArg1() == "please fail" {
 		return errors.New("Error")
@@ -64,20 +64,20 @@ func (s BasicServerImpl) MtStreamedReply(
 		}
 	}
 	time.Sleep(time.Second)
-	send(SimpleStringReply{Reply: "msg1"})
+	send(&SimpleStringReply{Reply: "msg1"})
 	time.Sleep(250 * time.Millisecond)
-	send(SimpleStringReply{Reply: "msg2"})
+	send(&SimpleStringReply{Reply: "msg2"})
 	time.Sleep(250 * time.Millisecond)
-	send(SimpleStringReply{Reply: "msg3"})
+	send(&SimpleStringReply{Reply: "msg3"})
 	time.Sleep(250 * time.Millisecond)
 	return nil
 }
 
 func (s BasicServerImpl) MtVoidReqStreamedReply(
-	ctx context.Context, send func(rep SimpleStringReply),
+	ctx context.Context, send func(rep *SimpleStringReply),
 ) error {
 	time.Sleep(2 * time.Second)
-	send(SimpleStringReply{Reply: "hi"})
+	send(&SimpleStringReply{Reply: "hi"})
 	return nil
 }
 
@@ -90,7 +90,7 @@ func (s BasicServerImpl) MtNoReply(ctx context.Context) {
 func (s BasicServerImpl) MtWithSubjectParams(
 	ctx context.Context, mp1 string, mp2 string,
 ) (
-	resp SimpleStringReply, err error,
+	resp *SimpleStringReply, err error,
 ) {
 	if mp1 != "p1" {
 		err = fmt.Errorf("Expects method param mp1 = 'p1', got '%s'", mp1)
@@ -103,14 +103,15 @@ func (s BasicServerImpl) MtWithSubjectParams(
 }
 
 func (s BasicServerImpl) MtStreamedReplyWithSubjectParams(
-	ctx context.Context, mp1 string, mp2 string, send func(rep SimpleStringReply),
+	ctx context.Context, mp1 string, mp2 string, send func(rep *SimpleStringReply),
 ) error {
-	send(SimpleStringReply{Reply: mp1})
-	send(SimpleStringReply{Reply: mp2})
+	send(&SimpleStringReply{Reply: mp1})
+	send(&SimpleStringReply{Reply: mp2})
 	return nil
 }
 
 func TestAll(t *testing.T) {
+	t.Log("TestAll")
 	c, err := nats.Connect(natsURL)
 	if err != nil {
 		t.Fatal(err)
@@ -140,7 +141,7 @@ func TestAll(t *testing.T) {
 				defer sub.Unsubscribe()
 
 				if err := handler.MtNoRequestPublish(
-					"default", SimpleStringReply{Reply: "test"},
+					"default", &SimpleStringReply{Reply: "test"},
 				); err != nil {
 					t.Fatal(t)
 				}
@@ -225,8 +226,8 @@ func TestAll(t *testing.T) {
 					defer wg.Done()
 					err := c1.MtStreamedReply(
 						context.Background(),
-						StringArg{Arg1: "arg"},
-						func(ctx context.Context, rep SimpleStringReply) {
+						&StringArg{Arg1: "arg"},
+						func(ctx context.Context, rep *SimpleStringReply) {
 							fmt.Println("received", rep)
 							resChan <- rep.GetReply()
 						})
@@ -261,8 +262,8 @@ func TestAll(t *testing.T) {
 					defer wg.Done()
 					err := c1.MtStreamedReply(
 						context.Background(),
-						StringArg{Arg1: "arg"},
-						func(ctx context.Context, rep SimpleStringReply) {
+						&StringArg{Arg1: "arg"},
+						func(ctx context.Context, rep *SimpleStringReply) {
 							fmt.Println("received", rep)
 							resChan <- rep.GetReply()
 						})
@@ -282,8 +283,8 @@ func TestAll(t *testing.T) {
 			// The 7th call should get a SERVERTOOBUSY error
 			err := c1.MtStreamedReply(
 				context.Background(),
-				StringArg{Arg1: "arg"},
-				func(ctx context.Context, rep SimpleStringReply) {
+				&StringArg{Arg1: "arg"},
+				func(ctx context.Context, rep *SimpleStringReply) {
 					fmt.Println("received", rep)
 				})
 			if err == nil {
@@ -330,19 +331,20 @@ func commonTests(
 		c1.Encoding = encoding
 		c2.Encoding = encoding
 
-		r, err := c1.MtSimpleReply(StringArg{Arg1: "hi"})
+		r, err := c1.MtSimpleReply(&StringArg{Arg1: "hi"})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if r.GetReply() != "hi" {
+		t.Log(r)
+		if r.GetReply() != "Hi" {
 			t.Error("Invalid reply:", r.GetReply())
 		}
 
-		if err := c1.MtVoidReply(StringArg{Arg1: "hi"}); err != nil {
+		if err := c1.MtVoidReply(&StringArg{Arg1: "hi"}); err != nil {
 			t.Error("Unexpected error:", err)
 		}
 
-		err = c1.MtVoidReply(StringArg{Arg1: "please fail"})
+		err = c1.MtVoidReply(&StringArg{Arg1: "please fail"})
 		if err == nil {
 			t.Error("Expected an error")
 		}
@@ -354,8 +356,8 @@ func commonTests(
 				var resList []string
 				err := c1.MtStreamedReply(
 					context.Background(),
-					StringArg{Arg1: "arg"},
-					func(ctx context.Context, rep SimpleStringReply) {
+					&StringArg{Arg1: "arg"},
+					func(ctx context.Context, rep *SimpleStringReply) {
 						fmt.Println("received", rep)
 						resList = append(resList, rep.GetReply())
 					})
@@ -376,8 +378,8 @@ func commonTests(
 			t.Run("Error", func(t *testing.T) {
 				log.SetOutput(TestingLogWriter{t})
 				err := c1.MtStreamedReply(context.Background(),
-					StringArg{Arg1: "please fail"},
-					func(ctx context.Context, rep SimpleStringReply) {
+					&StringArg{Arg1: "please fail"},
+					func(ctx context.Context, rep *SimpleStringReply) {
 						t.Fatal("Should not receive anything")
 					})
 				if err == nil {
@@ -390,8 +392,8 @@ func commonTests(
 				ctx, cancel := context.WithTimeout(context.Background(), 7*time.Second)
 				defer cancel()
 				err := c1.MtStreamedReply(ctx,
-					StringArg{Arg1: "very long call"},
-					func(context.Context, SimpleStringReply) {
+					&StringArg{Arg1: "very long call"},
+					func(context.Context, *SimpleStringReply) {
 						t.Fatal("Should not receive anything")
 					})
 				if err != nrpc.ErrCanceled {
@@ -403,7 +405,7 @@ func commonTests(
 				log.SetOutput(TestingLogWriter{t})
 				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
-				err := c1.MtVoidReqStreamedReply(ctx, func(context.Context, SimpleStringReply) {})
+				err := c1.MtVoidReqStreamedReply(ctx, func(context.Context, *SimpleStringReply) {})
 				if err != nil {
 					fmt.Print(err)
 					t.Error(err)
@@ -440,7 +442,7 @@ func commonTests(
 			err := c2.MtStreamedReplyWithSubjectParams(
 				context.Background(),
 				"arg1", "arg2",
-				func(ctx context.Context, rep SimpleStringReply) {
+				func(ctx context.Context, rep *SimpleStringReply) {
 					resList = append(resList, rep.GetReply())
 				})
 			if err != nil {
@@ -484,7 +486,7 @@ func commonTests(
 			}
 			defer sub1.Unsubscribe()
 			repChan := make(chan string, 2)
-			sub2, err := c1.MtNoRequestSubscribe(func(msg SimpleStringReply) {
+			sub2, err := c1.MtNoRequestSubscribe(func(msg *SimpleStringReply) {
 				repChan <- msg.GetReply()
 			})
 			if err != nil {
