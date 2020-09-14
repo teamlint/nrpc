@@ -11,10 +11,44 @@ tasks:
       - echo "{{.GREETING}}"
     silent: true
 
-  install:
-    desc: "install protoc-gen-nrpc"
+  gen-all:
+    desc: "go generate ./examples/alloptions"
+    dir: ./examples/alloptions
     cmds:
-      - echo "protoc-gen-nrpc installing..."
-      - go install ./protoc-gen-nrpc
-      - echo "protoc-gen-nrpc installed."
+      - echo "go generate ./examples/alloptions ..."
+      - go generate 
+      - echo "go generate ./examples/alloptions done."
     silent: true
+
+  install:
+    desc: "install protoc-gen-nrpc[dev]"
+    cmds:
+      - task: assets
+      - echo "protoc-gen-nrpc[dev] installing..."
+      - go install ./protoc-gen-nrpc
+      - echo "protoc-gen-nrpc[dev] installed."
+    silent: true
+
+  assets:
+    cmds:
+      - echo "assets building..."
+      - go-bindata -o=protoc-gen-nrpc/bindata/bindata.go -ignore="\\.DS_Store|desktop.ini|README.md" -pkg=bindata -prefix=assets assets/... 
+      - echo "assets build done."
+    silent: true
+    desc: "asset packaged"
+
+  assets-debug:
+    cmds:
+      - echo "assets debug building..."
+      - go-bindata -o=protoc-gen-nrpc/bindata/bindata.go -ignore="\\.DS_Store|desktop.ini|README.md" -pkg=bindata -prefix=assets -debug assets/... 
+      - echo "assets debug build done."
+    silent: true
+    desc: "asset debug packaged"
+
+  assets-fs:
+    cmds:
+      - echo "assets http.FileSystem building..."
+      - go-bindata -o=protoc-gen-nrpc/bindata/bindata.go -ignore="\\.DS_Store|desktop.ini|README.md" -pkg=bindata -fs -prefix=assets assets/... 
+      - echo "assets http.FileSystem build done."
+    silent: true
+    desc: "asset packaged"

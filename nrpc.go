@@ -237,7 +237,7 @@ func Call(req proto.Message, rep proto.Message, nc NatsConn, subject string, enc
 	}
 
 	data := msg.Data
-
+	log.Printf("[NRPC:Call] msg.data=%s,rep=%v\n", data, rep)
 	if err := UnmarshalResponse(encoding, data, rep); err != nil {
 		if _, isError := err.(*Error); !isError {
 			log.Printf("nrpc: response unmarshal failed: %v", err)

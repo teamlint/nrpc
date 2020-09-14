@@ -11,6 +11,7 @@ import (
 	"text/template"
 
 	"github.com/teamlint/nrpc"
+	"github.com/teamlint/nrpc/protoc-gen-nrpc/bindata"
 
 	"google.golang.org/protobuf/proto"
 	descriptor "google.golang.org/protobuf/types/descriptorpb"
@@ -449,6 +450,7 @@ func main() {
 		}
 	}
 
+	tFile := string(bindata.MustAsset("nrpc.tmpl"))
 	tmpl, err := template.New(".").Funcs(funcMap).Parse(tFile)
 	if err != nil {
 		log.Fatal(err)
