@@ -248,7 +248,6 @@ func (h *{{$svcName}}Handler) MsgHandler(msg *nats.Msg) {
 			log.Printf("{{$methodName}}Hanlder: {{$methodName}} subject parsing failed: %v", err)
 			break
 		}
-		// var req {{GoType .GetInputType}}
 		{{if eq .GetInputType ".nrpc.Void"}}
 		req := new(nrpc.Void)
 		{{else}}
@@ -284,16 +283,14 @@ func (h *{{$svcName}}Handler) MsgHandler(msg *nats.Msg) {
 			request.Handler = func(ctx context.Context)(proto.Message, error){
 				{{if eq .GetOutputType ".nrpc.NoReply" -}}
 				innerResp := new(nrpc.NoReply)
-				{{else}}
-				{{if eq .GetOutputType ".nrpc.Void" -}}
-				innerResp := new(nrpc.Void)
-				{{else}}
-				innerResp, 
-				{{end -}}
-				err := 
-				{{- end -}}
 				h.service.{{$methodName}}(ctx
-				{{- range $i, $p := GetMethodSubjectParams . -}}
+				{{- else if eq .GetOutputType ".nrpc.Void" -}}
+				innerResp := new(nrpc.Void)
+				err := h.service.{{$methodName}}(ctx
+				{{- else }} {{- /* Req/Reply 模式*/ -}}
+				innerResp, err := h.service.{{$methodName}}(ctx
+				{{- end -}}
+				{{- range $i, $p := GetMethodSubjectParams . -}} {{- /*方法主题参数*/ -}}
 				, mtParams[{{ $i }}]
 				{{- end -}}
 				{{- if ne .GetInputType ".nrpc.Void" -}}

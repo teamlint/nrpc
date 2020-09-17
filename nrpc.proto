@@ -55,6 +55,6 @@ message Void {}
 message NoRequest {}
 message NoReply {}
 
-message HeartBeat {
+message Heartbeat {
     bool lastbeat = 1;
 }
