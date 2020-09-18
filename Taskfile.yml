@@ -20,6 +20,24 @@ tasks:
       - echo "go generate ./examples/alloptions done."
     silent: true
 
+  gen-hello:
+    desc: "go generate ./examples/helloworld"
+    dir: ./examples/helloworld/helloworld
+    cmds:
+      - echo "go generate ./examples/helloworld ..."
+      - go generate 
+      - echo "go generate ./examples/helloworld done."
+    silent: true
+
+  gen-metrics:
+    desc: "go generate ./examples/metrics_helloworld"
+    dir: ./examples/metrics_helloworld/helloworld
+    cmds:
+      - echo "go generate ./examples/metrics_helloworld ..."
+      - go generate 
+      - echo "go generate ./examples/metrics_helloworld done."
+    silent: true
+
   install:
     desc: "install protoc-gen-nrpc[dev]"
     cmds:
@@ -52,3 +70,11 @@ tasks:
       - echo "assets http.FileSystem build done."
     silent: true
     desc: "asset packaged"
+
+  test:
+    desc: "go test"
+    cmds:
+      - go test ./examples/alloptions
+      - go test ./examples/helloworld/greeter_server
+    silent: true
+

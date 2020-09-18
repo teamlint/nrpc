@@ -82,16 +82,18 @@ func (s BasicServerImpl) MtVoidReqStreamedReply(ctx context.Context, send func(r
 // MtRequestNoReply NoReply 无回复模式
 func (s BasicServerImpl) MtRequestNoReply(ctx context.Context, req *StringArg) {
 	s.t.Log("Will publish to MtRequestNoReply")
-	s.t.Logf("client publish msg = %s\n", req.Arg1)              // 客户端发布的消息
-	s.t.Logf("server processing msg = %s\n", "server."+req.Arg1) // 客户端处理消息
+	s.t.Logf("client publish msg = %s\n", req.Arg1) // 客户端发布的消息
 	if s.handler == nil {
 		s.t.Log("s.handler is nil")
 	}
+	s.t.Log("server process begin...") // 服务端处理开始
+	time.Sleep(1 * time.Second)
 	err := s.handler.MtNoRequestPublish("default", &SimpleStringReply{Reply: fmt.Sprintf("server.%s", req.Arg1)}) // 服务端请求处理
 	if err != nil {
 		s.t.Logf("csc err=%v\n", err)
 	}
-	// time.Sleep(5 * time.Second)
+	s.t.Logf("server processing msg = %s\n", "server."+req.Arg1) // 客户端处理消息
+	s.t.Log("server process end.")                               // 服务端处理结束
 }
 
 func (s BasicServerImpl) MtNoReply(ctx context.Context) {
@@ -120,7 +122,7 @@ func (s BasicServerImpl) MtStreamedReplyWithSubjectParams(ctx context.Context, m
 }
 
 func TestNoReply(t *testing.T) {
-	conn, err := nats.Connect(natsURL)
+	conn, err := nats.Connect(NatsURL)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,8 +133,9 @@ func TestNoReply(t *testing.T) {
 	handler2 := NewSvcSubjectParamsHandler(context.Background(), conn, impl)
 	impl.handler2 = handler2
 
-	// handler1.SetEncodings([]string{encoding})
-	// handler2.SetEncodings([]string{encoding})
+	impl.handler.SetEncodings([]string{"protobuf", "json"})
+	impl.handler2.SetEncodings([]string{"protbufo", "json"})
+
 	s, err := conn.QueueSubscribe(handler1.Subject(), "queue", impl.handler.MsgHandler)
 	if err != nil {
 		t.Fatal(err)
@@ -143,15 +146,10 @@ func TestNoReply(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Unsubscribe()
-
-	t.Run("MtRequestNoReply", func(t *testing.T) {
+	// sync
+	t.Run("MtRequestNoReply_SYNC", func(t *testing.T) {
 		c1 := NewSvcCustomSubjectClient(conn, "default")
-		arg := "[client]req-noreply -> [server]process -> [server]publish to client"
-		// repChan := make(chan string, 1)
-		// 异步订阅
-		// sub, err := c1.MtNoRequestSubscribe(func(reply *SimpleStringReply) {
-		// 	repChan <- reply.GetReply()
-		// })
+		arg := "[client.sync]req-noreply -> [server]process -> [server]publish to client"
 		sub, err := c1.MtNoRequestSubscribeSync()
 		if err != nil {
 			t.Fatal(err)
@@ -161,28 +159,58 @@ func TestNoReply(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		// close(repChan)
-
-		t.Log("csc")
-		// time.Sleep(1 * time.Second)
-		// for rep := range repChan {
-		// 	t.Logf("c->s->c msg=%s\n", rep)
-		// 	if rep != "server-"+arg {
-		// 		t.Fatal("c->s->c")
-		// 	}
-		// }
-		reply, err := sub.Next(3 * time.Second)
+		t.Log("csc.sync")
+		reply, err := sub.Next(10 * time.Second)
 		if err != nil {
 			t.Fatal(err)
 		}
-		t.Logf("csc reply=%v, arg=%v\n", reply.GetReply(), arg)
+		t.Logf("csc.sync reply=%v, arg=%v\n", reply.GetReply(), arg)
 		require.Equal(t, "server."+arg, reply.GetReply())
+	})
+	// async
+	t.Run("MtRequestNoReply_ASYNC", func(t *testing.T) {
+		c1 := NewSvcCustomSubjectClient(conn, "default")
+		arg := "[client.async]req-noreply -> [server]process -> [server]publish to client"
+		repChan := make(chan string)
+		// 异步订阅
+		sub, err := c1.MtNoRequestSubscribe(func(reply *SimpleStringReply) {
+			defer close(repChan)
+			repChan <- reply.GetReply()
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer sub.Unsubscribe()
+		err = c1.MtRequestNoReply(&StringArg{Arg1: arg})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// wg.Wait()
+		t.Log("csc.async")
+		for rep := range repChan {
+			t.Logf("csc.aysnc reply=%v, arg=%v\n", rep, arg)
+			require.Equal(t, "server."+arg, rep)
+		}
+		// 带超时的处理
+		// select {
+		// case rep, ok := <-repChan:
+		// 	if !ok {
+		// 		t.Fatal("repChan is closed")
+		// 		break
+		// 	}
+		// 	require.Equal(t, "server."+arg, rep)
+		// case <-time.After(2 * time.Second):
+		// 	t.Fatal("async.timeout")
+		// 	break
+		// }
+		//
+		t.Log("csc.async.done")
 	})
 }
 
-func _TestAll(t *testing.T) {
-	t.Logf("Test start, natsURL=%v", natsURL)
-	c, err := nats.Connect(natsURL)
+func TestAll(t *testing.T) {
+	c, err := nats.Connect(NatsURL)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -226,9 +254,10 @@ func _TestAll(t *testing.T) {
 
 	t.Run("NoConcurrency", func(t *testing.T) {
 		log.SetOutput(TestingLogWriter{t})
-		handler1 := NewSvcCustomSubjectHandler(context.Background(), c, &BasicServerImpl{t, nil, nil})
-		impl := BasicServerImpl{t, handler1, nil}
-		handler2 := NewSvcSubjectParamsHandler(context.Background(), c, &impl)
+		impl := &BasicServerImpl{t, nil, nil}
+		handler1 := NewSvcCustomSubjectHandler(context.Background(), c, impl)
+		impl.handler = handler1
+		handler2 := NewSvcSubjectParamsHandler(context.Background(), c, impl)
 		impl.handler2 = handler2
 
 		if handler1.Subject() != "root.*.custom_subject.>" {
@@ -239,7 +268,7 @@ func _TestAll(t *testing.T) {
 		}
 
 		for _, encoding := range []string{"protobuf", "json"} {
-			t.Run("Encoding_"+encoding, commonTests(c, handler1, handler2, encoding))
+			t.Run("Encoding_"+encoding, commonTests(c, impl.handler, impl.handler2, encoding))
 		}
 	})
 
@@ -247,9 +276,10 @@ func _TestAll(t *testing.T) {
 		log.SetOutput(TestingLogWriter{t})
 		pool := nrpc.NewWorkerPool(context.Background(), 2, 5, 4*time.Second)
 
-		handler1 := NewSvcCustomSubjectConcurrentHandler(pool, c, BasicServerImpl{t, nil, nil})
-		impl := BasicServerImpl{t, handler1, nil}
-		handler2 := NewSvcSubjectParamsConcurrentHandler(pool, c, &impl)
+		impl := &BasicServerImpl{t, nil, nil}
+		handler1 := NewSvcCustomSubjectConcurrentHandler(pool, c, impl)
+		impl.handler = handler1
+		handler2 := NewSvcSubjectParamsConcurrentHandler(pool, c, impl)
 		impl.handler2 = handler2
 
 		if handler1.Subject() != "root.*.custom_subject.>" {
@@ -260,7 +290,7 @@ func _TestAll(t *testing.T) {
 		}
 
 		for _, encoding := range []string{"protobuf", "json"} {
-			t.Run("Encoding_"+encoding, commonTests(c, handler1, handler2, encoding))
+			t.Run("Encoding_"+encoding, commonTests(c, impl.handler, impl.handler2, encoding))
 		}
 
 		// Now a few tests very specific to concurrency handling
@@ -512,12 +542,12 @@ func commonTests(
 		t.Run("NoReply method with request", func(t *testing.T) {
 			log.SetOutput(TestingLogWriter{t})
 			arg := "[client]req-noreply -> [server]process -> [server]publish to client"
-			// repChan := make(chan string, 1)
 			// 异步订阅
-			// sub, err := c1.MtNoRequestSubscribe(func(reply *SimpleStringReply) {
-			// 	repChan <- reply.GetReply()
-			// })
-			sub, err := c1.MtNoRequestSubscribeSync()
+			repChan := make(chan string)
+			sub, err := c1.MtNoRequestSubscribe(func(reply *SimpleStringReply) {
+				defer close(repChan)
+				repChan <- reply.GetReply()
+			})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -526,22 +556,13 @@ func commonTests(
 			if err != nil {
 				t.Fatal(err)
 			}
-			// close(repChan)
 
 			t.Log("csc")
-			// time.Sleep(1 * time.Second)
-			// for rep := range repChan {
-			// 	t.Logf("c->s->c msg=%s\n", rep)
-			// 	if rep != "server-"+arg {
-			// 		t.Fatal("c->s->c")
-			// 	}
-			// }
-			reply, err := sub.Next(6 * time.Second)
-			if err != nil {
-				t.Fatal(err)
+			for rep := range repChan {
+				t.Logf("c->s->c msg=%s\n", rep)
+				require.Equal(t, "server."+arg, rep)
 			}
-			t.Logf("csc reply=%v, arg=%v\n", reply.GetReply(), arg)
-			require.Equal(t, "server."+arg, reply.GetReply())
+			t.Log("csc.done")
 		})
 
 		t.Run("NoRequest method with params", func(t *testing.T) {

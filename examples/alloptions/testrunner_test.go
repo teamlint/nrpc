@@ -9,7 +9,7 @@ import (
 	natsd "github.com/nats-io/nats-server/v2/server"
 )
 
-var natsURL string
+var NatsURL string
 
 func TestMain(m *testing.M) {
 	opts := natsd.Options{
@@ -20,11 +20,9 @@ func TestMain(m *testing.M) {
 		log.Printf("NATS server run err=%v\n", err)
 		panic(err)
 	}
-	// log.Printf("NATS server =%v\n", s)
-	natsURL = "nats://" + strconv.Itoa(opts.Port)
-	go natsd.Run(s) // or
+	NatsURL = "nats://localhost:" + strconv.Itoa(opts.Port)
+	go natsd.Run(s)
 	defer s.Shutdown()
 	log.Printf("NATS server(%v) running... \n", "default")
-	natsURL = "nats://localhost:4222"
 	os.Exit(m.Run())
 }

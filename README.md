@@ -49,7 +49,7 @@ helloworld.nrpc.go	helloworld.pb.go	helloworld.proto
 
 ##### **标准模式**
 
-服务端订阅消息, 客户端发送Request消息获取Reply消息
+服务端订阅消息, 客户端发送 Request 消息获取 Reply 消息
 
 ##### **流回复模式**
 
@@ -114,11 +114,9 @@ err := client.MtStreamedReply(context.Background(), &StringArg{Arg1: "arg"}, fun
  received reply:"msg3"
 ```
 
-
-
 #### NoReply 无回复模式
 
-客户端发布消息, 服务端需要实现消息处理逻辑
+客户端发布消息, 服务端需要实现消息处理逻辑, 无任何返回值
 
 **Proto 定义**:
 
@@ -137,52 +135,33 @@ service SvcCustomSubject {
 func (s BasicServerImpl) MtRequestNoReply(ctx context.Context, req *StringArg) {
 	s.t.Log("Will publish to MtRequestNoReply")
 	s.t.Logf("client publish msg = %v\n", *req)
+  // TODO: 处理客户端发送过来的消息, 对于长时处理任务, 可以创建个NoRequest API, 然后在这里给客户端发送消息,客户端订阅消息进行后续处理 如:
+  s.handler.MtNoRequestPublish("default", &SimpleStringReply{Reply: "Hi there"})
 }
-/*
-func (s BasicServerImpl) MtNoReply(ctx context.Context) {
-	s.t.Log("Will publish to MtNoRequest")
-	s.handler.MtNoRequestPublish("default", &SimpleStringReply{Reply: "Hi there"})
-	s.handler2.MtNoRequestWParamsPublish("default", "me", "mtvalue", &SimpleStringReply{Reply: "Hi there"})
-}*/
 ```
-
-
 
 **客户端调用**:
 
 ```go
-c2 := NewSvcSubjectParamsClient(conn, "default", "me") // me 为服务主题参数值
-sub, err := c2.MtNoRequestWParamsSubscribeSync( // 同步订阅
-  "mtvalue",
-)
+// 客户端订阅消息
+c1 := NewSvcCustomSubjectClient(conn, "default")
+arg := "[client.sync]req-noreply -> [server]process -> [server]publish to client"
+// 创建同步消息订阅器
+sub, err := c1.MtNoRequestSubscribeSync() // NoRequest 模式生成的订阅方法
 if err != nil {
   t.Fatal(err)
 }
 defer sub.Unsubscribe()
-c2.MtNoReply()
-reply, err := sub.Next(time.Second)
+err = c1.MtRequestNoReply(&StringArg{Arg1: arg}) // NoReply 客户端方法
 if err != nil {
   t.Fatal(err)
 }
-if reply.GetReply() != "Hi there" {
-  t.Errorf("Expected 'Hi there', got %s", reply.GetReply())
+// 获取消息
+reply, err := sub.Next(10 * time.Second) 
+if err != nil {
+  t.Fatal(err)
 }
-
 ```
-
-
-
-
-
-**结果:**
-
-```shell
-
-```
-
-
-
-
 
 #### NoRequest 无请求模式
 
@@ -190,14 +169,14 @@ if reply.GetReply() != "Hi there" {
 
 - 服务端生成
 
-  服务端==不生成方法接口==, 转而生成 `方法名+Publish` 方法, 用于消息发布
+  服务端==不生成方法接口==, 转而生成 `RPC方法名+Publish` 方法, 用于消息发布
 
 - 客户端生成 
 
-  - `方法名+Subject` 方法用于获取消息主题, 
-  - `方法名+Subscribe`  用于异步订阅主题
-  - `方法名+SubscribeSync`  用于同步订阅主题
-  - `方法名+SubscribeChan`  用于管道订阅主题
+  - `RPC方法名+Subject` 方法用于获取消息主题, 
+  - `RPC方法名+Subscribe`  用于异步订阅主题
+  - `RPC方法名+SubscribeSync`  用于同步订阅主题
+  - `RPC方法名+SubscribeChan`  用于管道订阅主题
 
 **Proto 定义**:
 
@@ -209,38 +188,48 @@ service SvcCustomSubject {
 }
 ```
 
-
-
 **服务端实现**:
 
-
+服务端==不生成方法接口==, 不需要具体实现, 转而生成 `RPC方法名+Publish` 方法, 服务端其它方法实现进行相关调用
 
 **客户端调用**:
 
+客户端直接订阅消息主题进行处理, 支持同步订阅, 异步订阅, 管道订阅
 
+```go
+// 客户端订阅消息
+c1 := NewSvcCustomSubjectClient(conn, "default")
+repChan := make(chan string)
+// 创建异步消息订阅器
+sub, err := c1.MtNoRequestSubscribe(func(reply *SimpleStringReply) {
+  defer close(repChan)
+  repChan <- reply.GetReply()
+})
+if err != nil {
+  t.Fatal(err)
+}
+defer sub.Unsubscribe()
+// 获取消息
+for rep := range repChan {
+  t.Log(rep)
+}
+```
 
-**结果:**
+### Protobuf 参数
 
+- nrpc.Void 空参数
 
-
-### proto 定义
-
-- nrpc.Void 无参数, 不改变调用模式, 服务端返回值带error
+  不改变调用模式, 服务端返回值带 error
 
 - nrpc.NoReply 改变调用模式
   客户端使用PUB模式, 服务端不返回任何值(不带error)
 
-  **服务端签名:**
+- nprc.NoRequest 改变调用模式, 不生成方法接口
+  服务端使用PUB模式发布消息, 方法签名 `RPC方法名+Publish`
+  客户端订阅消息,
   
-  ```go
-   MtRequestNoReply(ctx context.Context, req *StringArg)
-  ```
-  
-  
-  
-- nprc.NoRequest 改变调用模式, 不生成普通方法
-  服务端使用PUB模式发布消息, 方法签名 `方法名+Publish`
-  客户端订阅消息, 方法签名 `方法名+Subscribe` `方法名+Subject`
+  - 订阅方法签名 `RPC方法名+Subscribe[Sync|Chan]` 
+  - 获取消息主题方法签名`RPC方法名+Subject`
 
 ### 运行机制 
 
@@ -362,6 +351,7 @@ $
 - NoReply 请求方法签名返回值加error
 - NRPC client request timeout or CallOption or Context
 - user [protogen](google.golang.org/protobuf/compiler/protogen) refactor protoc-gen-nrpc
+- Hub 动态调用不同客户端, pkg实例参数?
 
 
 

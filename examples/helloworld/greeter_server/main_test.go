@@ -14,7 +14,7 @@ import (
 
 func TestBasic(t *testing.T) {
 	// Connect to the NATS server.
-	nc, err := nats.Connect(natsURL, nats.Timeout(5*time.Second))
+	nc, err := nats.Connect(NatsURL, nats.Timeout(5*time.Second))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +28,7 @@ func TestBasic(t *testing.T) {
 
 	// Start a NATS subscription using the handler. You can also use the
 	// QueueSubscribe() method for a load-balanced set of servers.
-	sub, err := nc.Subscribe(h.Subject(), h.Handler)
+	sub, err := nc.Subscribe(h.Subject(), h.MsgHandler)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +38,7 @@ func TestBasic(t *testing.T) {
 	cli := helloworld.NewGreeterClient(nc)
 
 	// Contact the server and print out its response.
-	resp, err := cli.SayHello(helloworld.HelloRequest{Name: "world"})
+	resp, err := cli.SayHello(&helloworld.HelloRequest{Name: "world"})
 	if err != nil {
 		t.Fatal(err)
 	}
