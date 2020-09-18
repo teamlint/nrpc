@@ -231,73 +231,6 @@ for rep := range repChan {
   - 订阅方法签名 `RPC方法名+Subscribe[Sync|Chan]` 
   - 获取消息主题方法签名`RPC方法名+Subject`
 
-### 运行机制 
-
-The .proto file defines messages (like HelloRequest and HelloReply in the
-example) and services (Greeter) that have methods (SayHello).
-
-The messages are generated as Go structs by the regular Go protobuf compiler
-plugin and gets written out to \*.pb.go files.
-
-For the rest, nRPC generates three logical pieces.
-
-The first is a Go interface type (GreeterServer) which your actual
-microservice code should implement:
-
-```go
-// This is what is contained in the .proto file
-service Greeter {
-    rpc SayHello (HelloRequest) returns (HelloReply) {}
-}
-
-// This is the generated interface which you've to implement
-type GreeterService interface {
-    SayHello(ctx context.Context, req HelloRequest) (resp HelloReply, err error)
-}
-```
-
-The second is a client (GreeterClient struct). This struct has
-methods with appropriate types, that correspond to the service definition. The
-client code will marshal and wrap the request object (HelloRequest) and do a
-NATS `Request`.
-
-```go
-// The client is associated with a NATS connection.
-func NewGreeterClient(nc *nats.Conn) *GreeterClient {...}
-
-// And has properly typed methods that will marshal and perform a NATS request.
-func (c *GreeterClient) SayHello(req HelloRequest) (resp HelloReply, err error) {...}
-```
-
-The third and final piece is the handler (GreeterHandler). Given a NATS
-connection and a server implementation, it can accept NATS requests in the
-format sent by the client above. It should be installed as a message handler for
-a particular NATS subject (defaults to the name of the service) using the
-NATS Subscribe() or QueueSubscribe() methods. It will invoke the appropriate
-method of the GreeterServer interface upon receiving the appropriate request.
-
-```go
-// A handler is associated with a NATS connection and a server implementation.
-func NewGreeterHandler(ctx context.Context, nc *nats.Conn, s GreeterService) *GreeterHandler {...}
-
-// It has a method that can (should) be used as a NATS message handler.
-func (h *GreeterHandler) MsgHandler(msg *nats.Msg) {...}
-```
-
-Standing up a microservice involves:
-
-- writing the .proto service definition file
-- generating the \*.pb.go and \*.nrpc.go files
-- implementing the server interface
-- writing a main app that will connect to NATS and start the handler ([see
-  example](https://github.com/teamlint/nrpc/blob/master/examples/helloworld/greeter_server/main.go))
-
-To call the service:
-
-- import the package that contains the generated *.nrpc.go files
-- in the client code, connect to NATS
-- create a Caller object and call the methods as necessary ([see example](https://github.com/teamlint/nrpc/blob/master/examples/helloworld/greeter_client/main.go))
-
 ## 特性
 
 查看链接获取详细信息:
@@ -307,11 +240,6 @@ To call the service:
   使用 [Prometheus](https://github.com/prometheus/prometheus)
 
 ## 安装
-
-nRPC needs Go 1.7 or higher. $GOPATH/bin needs to be in $PATH for the protoc
-invocation to work. To generate code, you need the protobuf compiler (which
-you can install from [here](https://github.com/google/protobuf/releases))
-and the nRPC protoc plugin.
 
 安装  protoc NRPC 插件:
 
@@ -333,7 +261,6 @@ server is running, ^C quits.
 $ go get github.com/teamlint/nrpc/examples/helloworld/greeter_client
 $ greeter_client
 Greeting: Hello world
-$
 ```
 
 ## 参考文档
@@ -348,7 +275,6 @@ $
 
 ## TODO
 
-- NoReply 请求方法签名返回值加error
 - NRPC client request timeout or CallOption or Context
 - user [protogen](google.golang.org/protobuf/compiler/protogen) refactor protoc-gen-nrpc
 - Hub 动态调用不同客户端, pkg实例参数?
