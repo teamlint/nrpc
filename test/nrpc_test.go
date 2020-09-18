@@ -1,4 +1,4 @@
-package nrpc_test
+package test
 
 import (
 	"bytes"
@@ -19,7 +19,7 @@ import (
 //go:generate mv nrpc_test.pb.go nrpcpb_test.go
 
 func TestBasic(t *testing.T) {
-	nc, err := nats.Connect(nrpc.NatsURL, nats.Timeout(5*time.Second))
+	nc, err := nats.Connect(NatsURL, nats.Timeout(5*time.Second))
 	if err != nil {
 		t.Fatal(err)
 	}

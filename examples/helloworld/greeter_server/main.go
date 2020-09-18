@@ -20,9 +20,10 @@ type greeterService struct{}
 
 // SayHello is an implementation of the SayHello method from the definition of
 // the Greeter service.
-func (s *greeterService) SayHello(ctx context.Context, req helloworld.HelloRequest) (resp helloworld.HelloReply, err error) {
+func (s *greeterService) SayHello(ctx context.Context, req *helloworld.HelloRequest) (*helloworld.HelloReply, error) {
+	resp := new(helloworld.HelloReply)
 	resp.Message = "Hello " + req.Name
-	return
+	return resp, nil
 }
 
 func main() {
@@ -45,7 +46,7 @@ func main() {
 
 	// Start a NATS subscription using the handler. You can also use the
 	// QueueSubscribe() method for a load-balanced set of servers.
-	sub, err := nc.Subscribe(h.Subject(), h.Handler)
+	sub, err := nc.Subscribe(h.Subject(), h.MsgHandler)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -301,7 +301,7 @@ func (*NoReply) Descriptor() ([]byte, []int) {
 	return file_nrpc_proto_rawDescGZIP(), []int{3}
 }
 
-type HeartBeat struct {
+type Heartbeat struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
@@ -309,8 +309,8 @@ type HeartBeat struct {
 	Lastbeat bool `protobuf:"varint,1,opt,name=lastbeat,proto3" json:"lastbeat,omitempty"`
 }
 
-func (x *HeartBeat) Reset() {
-	*x = HeartBeat{}
+func (x *Heartbeat) Reset() {
+	*x = Heartbeat{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_nrpc_proto_msgTypes[4]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -318,13 +318,13 @@ func (x *HeartBeat) Reset() {
 	}
 }
 
-func (x *HeartBeat) String() string {
+func (x *Heartbeat) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*HeartBeat) ProtoMessage() {}
+func (*Heartbeat) ProtoMessage() {}
 
-func (x *HeartBeat) ProtoReflect() protoreflect.Message {
+func (x *Heartbeat) ProtoReflect() protoreflect.Message {
 	mi := &file_nrpc_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -336,12 +336,12 @@ func (x *HeartBeat) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use HeartBeat.ProtoReflect.Descriptor instead.
-func (*HeartBeat) Descriptor() ([]byte, []int) {
+// Deprecated: Use Heartbeat.ProtoReflect.Descriptor instead.
+func (*Heartbeat) Descriptor() ([]byte, []int) {
 	return file_nrpc_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *HeartBeat) GetLastbeat() bool {
+func (x *Heartbeat) GetLastbeat() bool {
 	if x != nil {
 		return x.Lastbeat
 	}
@@ -489,7 +489,7 @@ var file_nrpc_proto_rawDesc = []byte{
 	0x53, 0x10, 0x03, 0x12, 0x11, 0x0a, 0x0d, 0x53, 0x45, 0x52, 0x56, 0x45, 0x52, 0x54, 0x4f, 0x4f,
 	0x42, 0x55, 0x53, 0x59, 0x10, 0x04, 0x22, 0x06, 0x0a, 0x04, 0x56, 0x6f, 0x69, 0x64, 0x22, 0x0b,
 	0x0a, 0x09, 0x4e, 0x6f, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x22, 0x09, 0x0a, 0x07, 0x4e,
-	0x6f, 0x52, 0x65, 0x70, 0x6c, 0x79, 0x22, 0x27, 0x0a, 0x09, 0x48, 0x65, 0x61, 0x72, 0x74, 0x42,
+	0x6f, 0x52, 0x65, 0x70, 0x6c, 0x79, 0x22, 0x27, 0x0a, 0x09, 0x48, 0x65, 0x61, 0x72, 0x74, 0x62,
 	0x65, 0x61, 0x74, 0x12, 0x1a, 0x0a, 0x08, 0x6c, 0x61, 0x73, 0x74, 0x62, 0x65, 0x61, 0x74, 0x18,
 	0x01, 0x20, 0x01, 0x28, 0x08, 0x52, 0x08, 0x6c, 0x61, 0x73, 0x74, 0x62, 0x65, 0x61, 0x74, 0x2a,
 	0x24, 0x0a, 0x0b, 0x53, 0x75, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x52, 0x75, 0x6c, 0x65, 0x12, 0x08,
@@ -566,7 +566,7 @@ var file_nrpc_proto_goTypes = []interface{}{
 	(*Void)(nil),                      // 3: nrpc.Void
 	(*NoRequest)(nil),                 // 4: nrpc.NoRequest
 	(*NoReply)(nil),                   // 5: nrpc.NoReply
-	(*HeartBeat)(nil),                 // 6: nrpc.HeartBeat
+	(*Heartbeat)(nil),                 // 6: nrpc.Heartbeat
 	(*descriptor.FileOptions)(nil),    // 7: google.protobuf.FileOptions
 	(*descriptor.ServiceOptions)(nil), // 8: google.protobuf.ServiceOptions
 	(*descriptor.MethodOptions)(nil),  // 9: google.protobuf.MethodOptions
@@ -646,7 +646,7 @@ func file_nrpc_proto_init() {
 			}
 		}
 		file_nrpc_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*HeartBeat); i {
+			switch v := v.(*Heartbeat); i {
 			case 0:
 				return &v.state
 			case 1:

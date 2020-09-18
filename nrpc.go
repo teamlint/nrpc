@@ -502,7 +502,7 @@ func (sub *StreamCallSubscription) loop() {
 			return
 		case <-sub.ctx.Done():
 			// send a 'lastbeat' and quit
-			b, err := Marshal(sub.encoding, &HeartBeat{Lastbeat: true})
+			b, err := Marshal(sub.encoding, &Heartbeat{Lastbeat: true})
 			if err != nil {
 				err = fmt.Errorf("Error marshaling heartbeat: %s", err)
 				sub.errCh <- err
@@ -516,7 +516,7 @@ func (sub *StreamCallSubscription) loop() {
 			sub.errCh <- ErrCanceled
 			return
 		case <-ticker.C:
-			msg, err := Marshal(sub.encoding, &HeartBeat{})
+			msg, err := Marshal(sub.encoding, &Heartbeat{})
 			if err != nil {
 				err = fmt.Errorf("Error marshaling heartbeat: %s", err)
 				sub.errCh <- err
@@ -685,7 +685,7 @@ func (k *KeepStreamAlive) loop() {
 	for {
 		select {
 		case msg := <-hbChan:
-			var hb HeartBeat
+			var hb Heartbeat
 			if err := Unmarshal(k.encoding, msg.Data, &hb); err != nil {
 				log.Printf("nrpc: error unmarshaling heartbeat: %s", err)
 				ticker.Stop()

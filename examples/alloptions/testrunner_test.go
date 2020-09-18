@@ -2,29 +2,16 @@ package main
 
 import (
 	"log"
+	"os"
 	"strconv"
 	"testing"
 
 	natsd "github.com/nats-io/nats-server/v2/server"
 )
 
-var natsURL string
+var NatsURL string
 
 func TestMain(m *testing.M) {
-	// gnatsd := natsServer.New(&natsServer.Options{Port: natsServer.RANDOM_PORT})
-	// gnatsd.SetLogger(
-	// 	logger.NewStdLogger(false, false, false, false, false),
-	// 	false, false)
-	// go gnatsd.Start()
-	// defer gnatsd.Shutdown()
-
-	// if !gnatsd.ReadyForConnections(time.Second) {
-	// 	log.Fatal("Cannot start the gnatsd server")
-	// }
-	// natsURL = "nats://" + gnatsd.Addr().String()
-
-	// os.Exit(m.Run())
-
 	opts := natsd.Options{
 		Port: 4222,
 	}
@@ -33,10 +20,9 @@ func TestMain(m *testing.M) {
 		log.Printf("NATS server run err=%v\n", err)
 		panic(err)
 	}
-	// log.Printf("NATS server =%v\n", s)
-	natsURL = "nats://" + strconv.Itoa(opts.Port)
-	go natsd.Run(s) // or
-	// s.Start()
-	// defer s.Shutdown()
+	NatsURL = "nats://localhost:" + strconv.Itoa(opts.Port)
+	go natsd.Run(s)
+	defer s.Shutdown()
 	log.Printf("NATS server(%v) running... \n", "default")
+	os.Exit(m.Run())
 }

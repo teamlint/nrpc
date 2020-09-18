@@ -11,10 +11,15 @@ import (
 	"text/template"
 
 	"github.com/teamlint/nrpc"
+	"github.com/teamlint/nrpc/protoc-gen-nrpc/bindata"
 
 	"google.golang.org/protobuf/proto"
 	descriptor "google.golang.org/protobuf/types/descriptorpb"
 	plugin "google.golang.org/protobuf/types/pluginpb"
+)
+
+const (
+	ExcludedPkg = "github.com/teamlint/nrpc"
 )
 
 // baseName returns the last path element of the name, with the last dotted suffix removed.
@@ -265,11 +270,19 @@ var funcMap = template.FuncMap{
 		for _, sd := range fd.GetService() {
 			for _, md := range sd.GetMethod() {
 				goPkg, _ := getGoType(md.GetInputType())
+				// exclue teamlint/nrpc pkg
+				if goPkg == ExcludedPkg {
+					continue
+				}
 				pkgImportName := getPkgImportName(goPkg)
 				if pkgImportName != "" {
 					imports[pkgImportName] = goPkg
 				}
 				goPkg, _ = getGoType(getResultType(md))
+				// exclue teamlint/nrpc pkg
+				if goPkg == ExcludedPkg {
+					continue
+				}
 				pkgImportName = getPkgImportName(goPkg)
 				if pkgImportName != "" {
 					imports[pkgImportName] = goPkg
@@ -393,7 +406,6 @@ var request plugin.CodeGeneratorRequest
 var currentFile *descriptor.FileDescriptorProto
 
 func main() {
-
 	log.SetPrefix("protoc-gen-nrpc: ")
 	data, err := ioutil.ReadAll(os.Stdin)
 	if err != nil {
@@ -438,6 +450,7 @@ func main() {
 		}
 	}
 
+	tFile := string(bindata.MustAsset("nrpc.tmpl"))
 	tmpl, err := template.New(".").Funcs(funcMap).Parse(tFile)
 	if err != nil {
 		log.Fatal(err)

@@ -1,7 +1,8 @@
-package nrpc
+package test
 
 import (
 	"log"
+	"os"
 	"strconv"
 	"testing"
 
@@ -19,10 +20,8 @@ func TestMain(m *testing.M) {
 		log.Printf("NATS server run err=%v\n", err)
 		panic(err)
 	}
-	// log.Printf("NATS server =%v\n", s)
-	NatsURL = "nats://" + strconv.Itoa(opts.Port)
+	NatsURL = "nats://localhost:" + strconv.Itoa(opts.Port)
 	go natsd.Run(s) // or
-	// s.Start()
-	// defer s.Shutdown()
 	log.Printf("NATS server(%v) running... \n", "default")
+	os.Exit(m.Run())
 }

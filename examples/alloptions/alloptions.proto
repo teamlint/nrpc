@@ -27,6 +27,7 @@ service SvcCustomSubject {
     rpc MtVoidReqStreamedReply(nrpc.Void) returns (SimpleStringReply) {
         option (nrpc.streamedReply) = true;
     }
+    rpc MtRequestNoReply(StringArg) returns (nrpc.NoReply) {}
 }
 
 service SvcSubjectParams {
