@@ -93,7 +93,7 @@ func nrpcTmpl() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "nrpc.tmpl", size: 21953, mode: os.FileMode(420), modTime: time.Unix(1600419102, 0)}
+	info := bindataFileInfo{name: "nrpc.tmpl", size: 21953, mode: os.FileMode(420), modTime: time.Unix(1600425086, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }

@@ -241,11 +241,23 @@ for rep := range repChan {
 
 ## 安装
 
-安装  protoc NRPC 插件:
+### 安装 protoc 工具
+
+[下载](https://github.com/protocolbuffers/protobuf) 并安装 protocol buffer 编译工具
+
+### 安装  protoc GO 插件
+
+```shell
+$ go install google.golang.org/protobuf/cmd/protoc-gen-go
+```
+
+### 安装  protoc NRPC 插件
 
 ```shell
 $ go get github.com/teamlint/nrpc/protoc-gen-nrpc
 ```
+
+## 示例
 
 编译运行示例服务端 greeter_server:
 
